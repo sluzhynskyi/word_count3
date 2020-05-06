@@ -1,0 +1,7 @@
+/home/oem/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/201.7223.86/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - Unix Makefiles" /home/oem/Documents/AcsProjects/word_count2
+-- Found the following ICU libraries:
+--   uc (required)
+--   i18n (required)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/oem/Documents/AcsProjects/word_count2/cmake-build-release

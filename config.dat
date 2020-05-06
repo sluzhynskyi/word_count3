@@ -1,0 +1,5 @@
+in = /mnt/iso
+out_a = data_out/result_by_name.txt
+out_n = data_out/result_by_number.txt
+thr = 8
+merge_thr = 2
