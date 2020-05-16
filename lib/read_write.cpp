@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <algorithm>
+#include <tbb/concurrent_queue.h>
 
 namespace fs = boost::filesystem;
 
@@ -25,7 +26,7 @@ std::vector<std::string> get_file_list(const std::string &path) {
     return m_file_list;
 }
 
-void reading_from_archive(const std::string &buffer, t_queue<std::string> *tq) {
+void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::string> *tq) {
     struct archive *a;
     struct archive_entry *entry;
     la_int64_t r;
@@ -54,7 +55,7 @@ void reading_from_archive(const std::string &buffer, t_queue<std::string> *tq) {
             r = archive_read_data(a, &output[0], output.size());
             if (output.size() < 10 * std::pow(2, 20)) {
                 // write explicitly to the other buffer
-                tq->push_back(boost::locale::fold_case(boost::locale::normalize(output)));
+                tq->push(boost::locale::fold_case(boost::locale::normalize(output)));
             }
         }
     }
@@ -62,7 +63,7 @@ void reading_from_archive(const std::string &buffer, t_queue<std::string> *tq) {
     archive_read_free(a);
 }
 
-void read_from_dir(const std::vector<std::string> &files, t_queue<std::string> *tq) {
+void read_from_dir(const std::vector<std::string> &files, tbb::concurrent_queue<std::string> *tq) {
     for (const auto &file_name : files) {
         std::ostringstream buffer_ss;
         if (fs::exists(file_name)) {
@@ -75,7 +76,7 @@ void read_from_dir(const std::vector<std::string> &files, t_queue<std::string> *
                 if (fs::path(file_name).extension() == ".txt") {
                     if (buffer.size() < 10 * std::pow(2, 20)) {
                         std::cout << file_name << std::endl;
-                        tq->push_back(boost::locale::fold_case(boost::locale::normalize(buffer)));
+                        tq->push(boost::locale::fold_case(boost::locale::normalize(buffer)));
                     }
                 } else {
                     std::cout << file_name << std::endl;

@@ -1,7 +1,10 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.15)
 project(word_count)
 set(CMAKE_CXX_STANDARD 17)
-
+#
+#include(<path-to-tbb-cmake-modules>/TBBBuild.cmake)
+#tbb_build(TBB_ROOT <tbb_root> CONFIG_DIR TBB_DIR)
+find_package(TBB)
 find_package(LibArchive REQUIRED)
 find_package(ICU COMPONENTS uc i18n)
 find_package(Threads REQUIRED)
@@ -19,4 +22,4 @@ endif()
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${LibArchive_INCLUDE_DIRS})
 add_executable(word_count src/main.cpp lib/read_write.cpp inc/t_queue.h inc/time.hpp inc/read_write.hpp)
-target_link_libraries(word_count Threads::Threads ${Boost_LIBRARIES} ${LibArchive_LIBRARIES})
+target_link_libraries(word_count TBB::tbb ${Boost_LIBRARIES} ${LibArchive_LIBRARIES})

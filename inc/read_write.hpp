@@ -12,14 +12,15 @@
 #include <numeric>
 #include <exception>
 #include "t_queue.h"
+#include <tbb/concurrent_queue.h>
 
 namespace fs = boost::filesystem;
 
 std::vector<std::string> get_file_list(const std::string &path);
 
-void reading_from_archive(const std::string &buffer, t_queue<std::string> *tq);
+void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::string> *tq);
 
-void read_from_dir(const std::vector<std::string>& files, t_queue<std::string> *tq);
+void read_from_dir(const std::vector<std::string>& files, tbb::concurrent_queue<std::string> *tq);
 
 int write_file(const std::string &filename_a, const std::string &filename_n, std::map<std::string, int> mp);
 
