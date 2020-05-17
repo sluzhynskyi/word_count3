@@ -1,5 +1,5 @@
-in = data_in
+in = 8
 out_a = data_out/result_by_name.txt
 out_n = data_out/result_by_number.txt
-thr = 8
+thr = 2
 merge_thr = 2

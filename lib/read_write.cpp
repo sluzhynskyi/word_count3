@@ -10,6 +10,7 @@
 #include <string>
 #include <algorithm>
 #include <tbb/concurrent_queue.h>
+#include <tbb/concurrent_map.h>
 
 namespace fs = boost::filesystem;
 
@@ -91,7 +92,7 @@ void read_from_dir(const std::vector<std::string> &files, tbb::concurrent_queue<
     }
 }
 
-int write_file(const std::string &filename_a, const std::string &filename_n, std::map<std::string, int> mp) {
+int write_file(const std::string &filename_a, const std::string &filename_n, tbb::concurrent_unordered_map<std::string, int> mp) {
     std::ofstream out_a, out_n;
     out_a.open(filename_a, std::ios::trunc | std::ios::out | std::ios::binary);
     for (auto &it : mp) {

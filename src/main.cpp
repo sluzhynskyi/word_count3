@@ -13,7 +13,10 @@
 #include "../inc/read_write.hpp"
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
-
+#include <unistd.h>
+#include <tbb/pipeline.h>
+#define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
+#include <tbb/concurrent_unordered_map.h>
 
 namespace bl = boost::locale::boundary;
 namespace po = boost::program_options;
@@ -35,8 +38,6 @@ void merge_dict(tbb::concurrent_queue<std::map<std::string, int>> &dict_tq, std:
             break;
         }
         mtx.unlock();
-//        first_map = merge_pair[0];
-//        second_map = merge_pair[1];
 
         for (const auto &x : second_map) {
             first_map[x.first] += x.second;
@@ -57,6 +58,7 @@ void count_words_thr(tbb::concurrent_queue<std::string> &str_tq, std::map<std::s
         // Define a rule
         map.rule(bl::word_letters);
 
+
         for (bl::ssegment_index::iterator it = map.begin(), e = map.end(); it != e; ++it) {
             ++dict[*it];
         }
@@ -68,6 +70,43 @@ void read_str_from_dir_thr(std::string &in, tbb::concurrent_queue<std::string> *
     root.push_back(in);
     read_from_dir(root, str_tq);
     str_tq->push("POISON PILL");
+}
+
+void read_and_count(int thr, std::string &in, tbb::concurrent_queue<std::string> *tq, tbb::concurrent_unordered_map<std::string, int> &dict){
+    tbb::parallel_pipeline(
+            thr,
+            tbb::make_filter<void, std::string>(
+                    tbb::filter::serial_in_order,
+                    [&](tbb::flow_control &fc) -> std::string {
+                        std::string s;
+                        tq->try_pop(s);
+                        if (s == "POISON PILL") {
+                            fc.stop();
+                        }
+                        return s;
+                    } ) &
+                    tbb::make_filter<std::string, tbb::concurrent_unordered_map<std::string, int>>(
+                    tbb::filter::parallel,
+                    [&](std::string s) -> tbb::concurrent_unordered_map<std::string, int> {
+                        bl::ssegment_index map(bl::word, s.begin(), s.end());
+                        // Define a rule
+                        map.rule(bl::word_letters);
+
+                        tbb::concurrent_unordered_map<std::string, int> d;
+                        for (bl::ssegment_index::iterator it = map.begin(), e = map.end(); it != e; ++it) {
+                            ++d[*it];
+                        }
+                        return d;
+                    } ) &
+                    tbb::make_filter<tbb::concurrent_unordered_map<std::string, int>, void>(
+                            tbb::filter::serial_in_order,
+                            [&](tbb::concurrent_unordered_map<std::string, int> d) -> void {
+                                for (auto &it : d) {
+                                    dict[it.first] += it.second;
+                                }
+                            }
+            )
+    );
 }
 
 int main(int argc, char *argv[]) {
@@ -111,56 +150,23 @@ int main(int argc, char *argv[]) {
     }
 
     tbb::concurrent_queue<std::string> str_tq;
-
-    std::map<std::string, int> dict;
-    tbb::task_group g;
-    std::chrono::high_resolution_clock::time_point start;
+    tbb::concurrent_unordered_map<std::string, int> dict;
+    auto start = get_current_time_fenced();
 
     if (thr == 1) {
-        g.run([&]{read_str_from_dir_thr(std::ref(in), &str_tq);});
-        start = get_current_time_fenced();
-        g.run([&]{count_words_thr(std::ref(str_tq), std::ref(dict));});
 
-        g.wait();
     } else {
-        std::map<std::string, int> dicts[thr];
-        tbb::concurrent_queue<std::map<std::string, int>> dict_tq;
-        std::mutex mtx;
+        std::vector<std::string> root;
+        root.push_back(in);
+        read_from_dir(root, &str_tq);
+        str_tq.push("POISON PILL");
 
-        start = get_current_time_fenced();
-
-        g.run([&]{read_str_from_dir_thr(std::ref(in), &str_tq);});
-
-        for (int i = 0; i < thr; ++i) {
-            g.run([&]{count_words_thr(std::ref(str_tq), std::ref(dicts[i]));});
-        }
-
-        g.wait();
-
-        for (const auto &d : dicts) {
-            dict_tq.push(d);
-        }
-        tbb::task_group m;
-
-        for (int i = 0; i < merge_thr; ++i) {
-            m.run([&]{merge_dict(std::ref(dict_tq), std::ref(mtx));});
-        }
-
-        m.wait();
-
-        dict_tq.try_pop(dict);
-//        for (auto &d : dicts) {
-//            for (auto &it : d) {
-//                dict[it.first] += it.second;
-//            }
-//            d.clear();
-//        }
-
+        read_and_count(thr, in, &str_tq, dict);
     }
 
     auto finish = get_current_time_fenced();
     std::cout << "Total: " << static_cast<float>(to_ms(finish - start)) / 60 << std::endl;
-    write_file(out_a,out_n, dict);
+    write_file(out_a, out_n, dict);
 
     return 0;
 }

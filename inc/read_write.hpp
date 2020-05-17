@@ -13,6 +13,8 @@
 #include <exception>
 #include "t_queue.h"
 #include <tbb/concurrent_queue.h>
+#define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
+#include <tbb/concurrent_unordered_map.h>
 
 namespace fs = boost::filesystem;
 
@@ -22,14 +24,14 @@ void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::
 
 void read_from_dir(const std::vector<std::string>& files, tbb::concurrent_queue<std::string> *tq);
 
-int write_file(const std::string &filename_a, const std::string &filename_n, std::map<std::string, int> mp);
+int write_file(const std::string &filename_a, const std::string &filename_n, tbb::concurrent_unordered_map<std::string, int> mp);
 
 template <typename A, typename B>
-std::multimap<B, A> flip_map(std::map<A,B> & src) {
+std::multimap<B, A> flip_map(tbb::concurrent_unordered_map<A,B> & src) {
 
     std::multimap<B,A> dst;
 
-    for(typename std::map<A, B>::const_iterator it = src.begin(); it != src.end(); ++it)
+    for(typename tbb::concurrent_unordered_map<A, B>::const_iterator it = src.begin(); it != src.end(); ++it)
         dst.insert(std::pair<B, A>(it -> second, it -> first));
 
     return dst;
