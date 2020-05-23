@@ -24,13 +24,17 @@ void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::
 int write_file(const std::string &filename_a, const std::string &filename_n, tbb::concurrent_unordered_map<std::string, int> mp);
 
 template <typename A, typename B>
-std::multimap<B, A> flip_map(tbb::concurrent_unordered_map<A,B> & src) {
-
+std::multimap<B, A> flip_map(std::multimap<A,B> & src) {
     std::multimap<B,A> dst;
-
-    for(typename tbb::concurrent_unordered_map<A, B>::const_iterator it = src.begin(); it != src.end(); ++it)
-        dst.insert(std::pair<B, A>(it -> second, it -> first));
-
+    for(auto const & it: src)
+        dst.insert(std::pair<B, A>(it.second, it.first));
+    return dst;
+}
+template <typename A, typename B>
+std::multimap<A, B> copy_to_multimap(tbb::concurrent_unordered_map<A,B> & src) {
+    std::multimap<A,B> dst;
+    for(auto const & it: src)
+        dst.insert(std::pair<A, B>(it.first, it.second));
     return dst;
 }
 #endif

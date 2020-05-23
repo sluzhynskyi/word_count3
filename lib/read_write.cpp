@@ -47,13 +47,15 @@ void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::
 
 int write_file(const std::string &filename_a, const std::string &filename_n, tbb::concurrent_unordered_map<std::string, int> mp) {
     std::ofstream out_a, out_n;
+    std::multimap<std::string, int> cp = copy_to_multimap(mp);
+    mp.clear();
     out_a.open(filename_a, std::ios::trunc | std::ios::out | std::ios::binary);
-    for (auto &it : mp) {
+    for (auto &it : cp) {
         out_a << boost::format("%1% %|15t| : %|25t| %2%\n") % it.first.c_str() % it.second;
     }
     out_a.close();
-    std::multimap<int, std::string> dst = flip_map(mp);
-    mp.clear();
+    std::multimap<int, std::string> dst = flip_map(cp);
+    cp.clear();
     out_n.open(filename_n, std::ios::trunc | std::ios::out | std::ios::binary);
     for (auto it = dst.rbegin();
          it != dst.rend(); ++it) {

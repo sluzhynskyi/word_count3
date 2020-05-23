@@ -1,18 +1,12 @@
 #include <iostream>
-#include <boost/format.hpp>
 #include <boost/locale.hpp>
 #include <boost/program_options.hpp>
-#include <boost/algorithm/string.hpp>
 #include <string>
-#include <map>
-#include <vector>
 #include <thread>
 #include <boost/filesystem.hpp>
 #include "../inc/time.hpp"
 #include "../inc/read_write.hpp"
 #include <tbb/concurrent_queue.h>
-#include <tbb/task_group.h>
-#include <unistd.h>
 #include <tbb/pipeline.h>
 
 #define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
@@ -136,6 +130,5 @@ int main(int argc, char *argv[]) {
     auto finish = get_current_time_fenced();
     std::cout << "Total: " << static_cast<float>(to_ms(finish - start)) / 60 << std::endl;
     write_file(out_a, out_n, dict);
-
     return 0;
 }
