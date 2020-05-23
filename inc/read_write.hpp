@@ -11,18 +11,15 @@
 #include <boost/filesystem.hpp>
 #include <numeric>
 #include <exception>
-#include "t_queue.h"
 #include <tbb/concurrent_queue.h>
 #define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
 #include <tbb/concurrent_unordered_map.h>
 
 namespace fs = boost::filesystem;
 
-std::vector<std::string> get_file_list(const std::string &path);
 
 void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::string> *tq);
 
-void read_from_dir(const std::vector<std::string>& files, tbb::concurrent_queue<std::string> *tq);
 
 int write_file(const std::string &filename_a, const std::string &filename_n, tbb::concurrent_unordered_map<std::string, int> mp);
 

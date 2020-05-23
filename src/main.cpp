@@ -7,7 +7,6 @@
 #include <map>
 #include <vector>
 #include <thread>
-#include "../inc/t_queue.h"
 #include <boost/filesystem.hpp>
 #include "../inc/time.hpp"
 #include "../inc/read_write.hpp"
@@ -15,96 +14,79 @@
 #include <tbb/task_group.h>
 #include <unistd.h>
 #include <tbb/pipeline.h>
+
 #define TBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS 1
+
 #include <tbb/concurrent_unordered_map.h>
 
+namespace fs = boost::filesystem;
 namespace bl = boost::locale::boundary;
 namespace po = boost::program_options;
+namespace bs = boost::system;
 
 
-void merge_dict(tbb::concurrent_queue<std::map<std::string, int>> &dict_tq, std::mutex &mtx) {
-    std::map<std::string, int> first_map;
-    std::map<std::string, int> second_map;
-//    std::vector<std::map<std::string, int>> merge_pair;
+void pipeline(int thr, std::string &in, tbb::concurrent_unordered_map<std::string, int> &dict) {
+    fs::recursive_directory_iterator iter(in);
+    // Create a Recursive Directory Iterator object pointing to end.
+    fs::recursive_directory_iterator end;
 
-    while (true) {
-
-        mtx.lock();
-        if (dict_tq.unsafe_size() >= 2) {
-            dict_tq.try_pop(first_map);
-            dict_tq.try_pop(second_map);
-        } else {
-            mtx.unlock();
-            break;
-        }
-        mtx.unlock();
-
-        for (const auto &x : second_map) {
-            first_map[x.first] += x.second;
-        }
-        dict_tq.push(first_map);
-    }
-}
-
-void count_words_thr(tbb::concurrent_queue<std::string> &str_tq, std::map<std::string, int> &dict) {
-    while (true) {
-        std::string str_txt;
-        str_tq.try_pop(str_txt);
-        if (str_txt == "POISON PILL") {
-            str_tq.push(str_txt);
-            break;
-        }
-        bl::ssegment_index map(bl::word, str_txt.begin(), str_txt.end());
-        // Define a rule
-        map.rule(bl::word_letters);
-
-
-        for (bl::ssegment_index::iterator it = map.begin(), e = map.end(); it != e; ++it) {
-            ++dict[*it];
-        }
-    }
-}
-
-void read_str_from_dir_thr(std::string &in, tbb::concurrent_queue<std::string> *str_tq) {
-    std::vector<std::string> root;
-    root.push_back(in);
-    read_from_dir(root, str_tq);
-    str_tq->push("POISON PILL");
-}
-
-void read_and_count(int thr, std::string &in, tbb::concurrent_queue<std::string> *tq, tbb::concurrent_unordered_map<std::string, int> &dict){
     tbb::parallel_pipeline(
             thr,
             tbb::make_filter<void, std::string>(
-                    tbb::filter::serial_in_order,
+                    tbb::filter::serial_out_of_order,
                     [&](tbb::flow_control &fc) -> std::string {
-                        std::string s;
-                        tq->try_pop(s);
-                        if (s == "POISON PILL") {
+                        bs::error_code ec;
+                        if (iter == end) {
                             fc.stop();
+                            return "";
                         }
-                        return s;
-                    } ) &
-                    tbb::make_filter<std::string, tbb::concurrent_unordered_map<std::string, int>>(
+                        fs::path file = iter->path();
+                        while (fs::is_directory(file)) {
+                            iter.increment(ec);
+                            if (iter == end) {
+                                fc.stop();
+                                return "";
+                            }
+                            file = iter->path();
+                        }
+                        iter.increment(ec);
+                        return file.string();
+                    }) &
+            tbb::make_filter<std::string, tbb::concurrent_unordered_map<std::string, int>>(
                     tbb::filter::parallel,
-                    [&](std::string s) -> tbb::concurrent_unordered_map<std::string, int> {
-                        bl::ssegment_index map(bl::word, s.begin(), s.end());
-                        // Define a rule
-                        map.rule(bl::word_letters);
-
+                    [&](std::string file_name) -> tbb::concurrent_unordered_map<std::string, int> {
+                        tbb::concurrent_queue<std::string> tq;
+                        std::ostringstream buffer_ss;
+                        std::ifstream raw_file(file_name, std::ios::binary);
+                        buffer_ss << raw_file.rdbuf();
+                        std::string buffer{buffer_ss.str()};
+                        std::cout << file_name << std::endl;
+                        if (fs::path(file_name).extension() == ".txt") {
+                            if (buffer.size() < 10 * std::pow(2, 20)) {
+                                tq.push(boost::locale::fold_case(boost::locale::normalize(buffer)));
+                            }
+                        } else {
+                            reading_from_archive(buffer, &tq);
+                        }
+                        std::string s;
                         tbb::concurrent_unordered_map<std::string, int> d;
-                        for (bl::ssegment_index::iterator it = map.begin(), e = map.end(); it != e; ++it) {
-                            ++d[*it];
+                        while (tq.try_pop(s)) {
+                            bl::ssegment_index map(bl::word, s.begin(), s.end());
+                            // Define a rule
+                            map.rule(bl::word_letters);
+                            for (bl::ssegment_index::iterator it = map.begin(), e = map.end(); it != e; ++it) {
+                                ++d[*it];
+                            }
                         }
                         return d;
-                    } ) &
-                    tbb::make_filter<tbb::concurrent_unordered_map<std::string, int>, void>(
-                            tbb::filter::serial_in_order,
-                            [&](tbb::concurrent_unordered_map<std::string, int> d) -> void {
-                                for (auto &it : d) {
-                                    dict[it.first] += it.second;
-                                }
-                            }
+                    }) &
+            tbb::make_filter<tbb::concurrent_unordered_map<std::string, int>, void>(
+                    tbb::filter::serial_out_of_order,
+                    [&](const tbb::concurrent_unordered_map<std::string, int> &d) -> void {
+                        for (auto &it : d) {
+                            dict[it.first] += it.second;
+                        }
+                    }
             )
     );
 }
@@ -138,9 +120,7 @@ int main(int argc, char *argv[]) {
             ("in", po::value<std::string>(&in)->default_value("data_in/"))
             ("out_a", po::value<std::string>(&out_a)->default_value("data_out/result_by_name.txt"))
             ("out_n", po::value<std::string>(&out_n)->default_value("data_out/result_by_number.txt"))
-            ("thr", po::value<int>(&thr)->default_value(1))
-            ("merge_thr", po::value<int>(&merge_thr)->default_value(1));
-
+            ("thr", po::value<int>(&thr)->default_value(1));
     po::variables_map vm;
     store(parse_config_file(conf, config_parser), vm);
     notify(vm);
@@ -148,21 +128,10 @@ int main(int argc, char *argv[]) {
         std::cerr << "Insufficient number of threads." << std::endl;
         exit(3);
     }
-
-    tbb::concurrent_queue<std::string> str_tq;
     tbb::concurrent_unordered_map<std::string, int> dict;
     auto start = get_current_time_fenced();
 
-    if (thr == 1) {
-
-    } else {
-        std::vector<std::string> root;
-        root.push_back(in);
-        read_from_dir(root, &str_tq);
-        str_tq.push("POISON PILL");
-
-        read_and_count(thr, in, &str_tq, dict);
-    }
+    pipeline(thr, in, dict);
 
     auto finish = get_current_time_fenced();
     std::cout << "Total: " << static_cast<float>(to_ms(finish - start)) / 60 << std::endl;

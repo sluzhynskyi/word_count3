@@ -4,8 +4,8 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/oem/Documents/AcsProjects/word_count2/lib/read_write.cpp" "/home/oem/Documents/AcsProjects/word_count2/cmake-build-release/CMakeFiles/word_count.dir/lib/read_write.cpp.o"
-  "/home/oem/Documents/AcsProjects/word_count2/src/main.cpp" "/home/oem/Documents/AcsProjects/word_count2/cmake-build-release/CMakeFiles/word_count.dir/src/main.cpp.o"
+  "/home/oem/Documents/AcsProjects/word_count3/lib/read_write.cpp" "/home/oem/Documents/AcsProjects/word_count3/cmake-build-release/CMakeFiles/word_count.dir/lib/read_write.cpp.o"
+  "/home/oem/Documents/AcsProjects/word_count3/src/main.cpp" "/home/oem/Documents/AcsProjects/word_count3/cmake-build-release/CMakeFiles/word_count.dir/src/main.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

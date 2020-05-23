@@ -2,30 +2,11 @@
 #include "boost/locale.hpp"
 #include <iostream>
 #include <map>
-#include <set>
-#include <algorithm>
-#include "boost/algorithm/string.hpp"
 #include <cmath>
-#include <map>
 #include <string>
-#include <algorithm>
 #include <tbb/concurrent_queue.h>
-#include <tbb/concurrent_map.h>
 
 namespace fs = boost::filesystem;
-
-std::vector<std::string> get_file_list(const std::string &path) {
-    std::vector<std::string> m_file_list;
-    if (fs::is_directory(path) && !fs::is_empty(path)) {
-        fs::path apk_path(path);
-        fs::recursive_directory_iterator end;
-
-        for (auto &p : boost::filesystem::directory_iterator(path)) {
-            m_file_list.push_back(p.path().string());
-        }
-    }
-    return m_file_list;
-}
 
 void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::string> *tq) {
     struct archive *a;
@@ -62,34 +43,6 @@ void reading_from_archive(const std::string &buffer, tbb::concurrent_queue<std::
     }
     archive_read_close(a);
     archive_read_free(a);
-}
-
-void read_from_dir(const std::vector<std::string> &files, tbb::concurrent_queue<std::string> *tq) {
-    for (const auto &file_name : files) {
-        std::ostringstream buffer_ss;
-        if (fs::exists(file_name)) {
-            if (fs::is_directory(fs::path(file_name))) {
-                read_from_dir(get_file_list(file_name), tq);
-            } else {
-                std::ifstream raw_file(file_name, std::ios::binary);
-                buffer_ss << raw_file.rdbuf();
-                std::string buffer{buffer_ss.str()};
-                if (fs::path(file_name).extension() == ".txt") {
-                    if (buffer.size() < 10 * std::pow(2, 20)) {
-                        std::cout << file_name << std::endl;
-                        tq->push(boost::locale::fold_case(boost::locale::normalize(buffer)));
-                    }
-                } else {
-                    std::cout << file_name << std::endl;
-                    reading_from_archive(buffer, tq);
-                }
-            }
-
-        } else {
-            std::cerr << "File: " << file_name << " is't exists" << std::endl;
-            exit(1);
-        }
-    }
 }
 
 int write_file(const std::string &filename_a, const std::string &filename_n, tbb::concurrent_unordered_map<std::string, int> mp) {
